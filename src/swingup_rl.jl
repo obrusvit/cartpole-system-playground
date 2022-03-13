@@ -72,7 +72,7 @@ function trainCartPoleController(T_N::Float64, N::Int64, params::CartPoleParams,
       nn_pinit,
       # ADAM(0.05),
       cb=callback_1,
-      maxiters=2500,
+      maxiters=2400,
     )
 
     if saveToJson

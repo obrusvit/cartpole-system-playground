@@ -3,6 +3,9 @@
  author: Obrusnik Vit
 "
 
+using Ipopt
+import JuMP
+
 function swingupControlTrajectory(T_N::Float64, N::Int64,  params::CartPoleParams, x0::CartPoleState, xN::CartPoleState)
     g = 9.81
     @unpack mₜ, mₚ, bₜ, bₚ, L  = params

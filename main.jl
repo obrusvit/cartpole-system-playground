@@ -6,7 +6,6 @@
 using DifferentialEquations
 using Random, Distributions
 using UnPack
-using Ipopt
 using LinearAlgebra
 using ControlSystems
 using Plots
@@ -39,68 +38,19 @@ function get_state_noise()
     return rand(dist) 
 end
 
-function plot_meas_and_est(tₘ, meas, tₒ, estim)
-    p = plot(title="CartPole States (meas and estim)")
-    p1 = plot(tₘ,  meas[:,1], label="x", title="cart pos")
-    plot!(p1, tₒ, estim[:,1], label="x_e")
-    p2 = plot(tₘ,  meas[:,2], label="xdot", title="cart speed")
-    plot!(p2, tₒ, estim[:,2], label="xdot_e")
-    p3 = plot(tₘ,  meas[:,3], label="phi", title="pole angle")
-    plot!(p3, tₘ, estim[:,3], label="phi_e")
-    p4 = plot(tₘ,  meas[:,4], label="phidot", title="pole angular speed")
-    plot!(p4, tₒ, estim[:,4], label="phidot_e")
-    p = plot(p1, p2, p3, p4, layout=(2, 2))
-    
-    display(p)
-end
-
-function unpack_sol(sol::SavedValues; indices=[1,2,3,4])
-    # indices 5-8 if we have also noisy values in SavedVector
-    sol_x1 = [s[indices[1]] for s in sol.saveval]
-    sol_x2 = [s[indices[2]] for s in sol.saveval]
-    sol_x3 = [s[indices[3]] for s in sol.saveval]
-    sol_x4 = [s[indices[4]] for s in sol.saveval]
-    return [sol_x1 sol_x2 sol_x3 sol_x4]
-end
-
-function unpack_sol(t, sol)
-    sol_unpacked = sol.(t)
-    sol_x1 = [s[1] for s in sol_unpacked]
-    sol_x2 = [s[2] for s in sol_unpacked]
-    sol_x3 = [s[3] for s in sol_unpacked]
-    sol_x4 = [s[4] for s in sol_unpacked]
-    return [sol_x1 sol_x2 sol_x3 sol_x4]
-end
-
-function corrupt_sol(t, sol_unpacked)
-    sol_corrupted = zeros(size(sol_unpacked))
-    for i = 1:length(t)
-        noise = get_meas_noise()
-        @. sol_corrupted[i, :] = sol_unpacked[i,:] + noise
-    end
-    return sol_corrupted 
-end
-
-function plot_with_meas_noise(t, sol_unpacked, sol_corrupted)
-    p = plot(title="States (sim and meas)")
-    p1 = plot(t, sol_corrupted[:,1], label="x_m", title="cart pos")
-    plot!(p1, t, sol_unpacked[:,1], label="x")
-    p2 = plot(t, sol_corrupted[:,2], label="xdot_m", title="cart speed")
-    plot!(p2, t, sol_unpacked[:,2], label="xdot")
-    p3 = plot(t, sol_corrupted[:,3], label="phi_m", title="pole angle")
-    plot!(p3, t, sol_unpacked[:,3], label="phi")
-    p4 = plot(t, sol_corrupted[:,4], label="phidot_m", title="pole angular speed")
-    plot!(p4, t, sol_unpacked[:,4], label="phidot")
-    p = plot(p1, p2, p3, p4, layout=(2, 2))
-    display(p)
-end
-
 
 function main_just_simulate()
     # CartPole structure creation
-    params = CartPoleParams();
-    init = CartPoleState(0.0, 0.0, 0.0, 0.0);
-    # sys = CartPole(params, init);
+    # params = CartPoleParams();
+    params  = CartPoleParams(
+            1.0, 0.5,     # w, h
+            1.0, 0.3,   # mt, mp
+            2.0,        # L
+            0.2, 0.2  # bt, bp
+        )
+
+    init = CartPoleState(0.0, 0.0, pi-0.3, 0.0);
+    sys = CartPole(params, init);
 
     # Time
     tspan = (0.0, 20.0);
@@ -108,8 +58,8 @@ function main_just_simulate()
     t_lin = range(tspan[begin], tspan[end], step=Ts);
 
     # # Forcing function
-    # f(x,t) = f_step(x, t; t_step_begin=9.3, t_step_end=11);
-    f(x, t) = f_step(x, t; t_step_begin=4, t_step_end=6);
+    # f(x, t) = f_step(x, t; t_step_begin=4, t_step_end=6);
+    f(x, t) = f0(x,t);
 
     # # ODE problem of nonlinear CartPole System
     p = [params.mₜ, params.mₚ, params.L, params.bₜ, params.bₚ, f];
@@ -118,13 +68,9 @@ function main_just_simulate()
     sol = solve(prob);
 
     # Plot
-    sol_unpacked = unpack_sol(t_lin, sol)
-    p1 = plot(t_lin, sol_unpacked[:,1], label=L"x")
-    p2 = plot(t_lin, sol_unpacked[:,2], label=L"\dot{x}")
-    p3 = plot(t_lin, sol_unpacked[:,3], label=L"\phi")
-    p4 = plot(t_lin, sol_unpacked[:,4], label=L"\dot{\phi}")
-    p = plot(p1, p2, p3, p4, layout=(2, 2))
-    display(p)
+    plot_sol(t_lin, sol)
+
+    make_gif(sol, sys)
 end
 
 
@@ -242,23 +188,7 @@ function main_estimator_cb()
     sol = solve(prob, callback=cb);
 
     # Plot
-    sol_unpacked = unpack_sol(t_lin, sol)
-    estim_unpack = unpack_sol(saved_values, indices=[1, 2, 3, 4])
-    sol_unpacked_noisy = unpack_sol(saved_values, indices=[5, 6, 7, 8])
-    p1 = plot(t_lin, sol_unpacked_noisy[:,1], label=L"x_{meas}", alpha=0.3)
-    plot!(p1, t_lin, sol_unpacked[:,1], label=L"x_{true}", linewidth=1.5)
-    plot!(p1, t_lin, estim_unpack[:,1], label=L"x_{estim}", style=:dash, linewidth=1.5)
-    p2 = plot(t_lin, sol_unpacked_noisy[:,2], label=L"\dot{x}_{meas}", alpha=0.3)
-    plot!(p2, t_lin, sol_unpacked[:,2], label=L"\dot{x}_{true}", linewidth=1.5)
-    plot!(p2, t_lin, estim_unpack[:,2], label=L"\dot{x}_{estim}", style=:dash, linewidth=1.5)
-    p3 = plot(t_lin, sol_unpacked_noisy[:,3], label=L"\phi_{meas}", alpha=0.3)
-    plot!(p3, t_lin, sol_unpacked[:,3], label=L"\phi_{true}", linewidth=1.5)
-    plot!(p3, t_lin, estim_unpack[:,3], label=L"\phi_{estim}", style=:dash, linewidth=1.5)
-    p4 = plot(t_lin, sol_unpacked_noisy[:,4], label=L"\dot{\phi}_{meas}", alpha=0.3)
-    plot!(p4, t_lin, sol_unpacked[:,4], label=L"\dot{\phi}_{true}", linewidth=1.5)
-    plot!(p4, t_lin, estim_unpack[:,4], label=L"\dot{\phi}_{estim}", style=:dash, linewidth=1.5)
-    p = plot(p1, p2, p3, p4, layout=(2, 2))
-    display(p)
+    plot_sol_and_est(t_lin, sol, saved_values)
 end
 
 function main_LQR(gif::Bool)
@@ -291,9 +221,7 @@ function main_LQR(gif::Bool)
     sol = solve(prob)
 
     # Plot
-    sol_unpacked = unpack_sol(t_lin, sol)
-    p = plot(t_lin, sol_unpacked)
-    display(p)
+    plot_sol(t_lin, sol)
     if gif
         make_gif(sol, sys)
     end
@@ -328,11 +256,15 @@ function main_swingup_optim()
 
     # # ODE problem of nonlinear CartPole System
     tspan = (0, 3 * T_N)
+    Ts = 0.001;
+    t_lin = range(tspan[begin], tspan[end], step=Ts);
     p = [params.mₜ, params.mₚ, params.L, params.bₜ, params.bₚ, f]
     x0 = [init.x, init.ẋ, init.ϕ, init.ϕ̇]
     prob = ODEProblem(cartPoleSystem, x0, tspan, p)
     sol = solve(prob)
-    # plot(sol)
+
+    # Plot
+    plot_sol(t_lin, sol)
 
     make_gif(sol, sys)
 end
@@ -365,13 +297,17 @@ function main_swingup_rl(; nn_params=nothing)
 
     # # ODE problem of nonlinear CartPole System
     tspan = (0, 10 * T_N)
+    Ts = 0.001;
+    t_lin = range(tspan[begin], tspan[end], step=Ts);
     p = [params.mₜ, params.mₚ, params.L, params.bₜ, params.bₚ, f]
     x0 = [init.x, init.ẋ, init.ϕ, init.ϕ̇]
     prob = ODEProblem(cartPoleSystem, x0, tspan, p)
     sol = solve(prob)
-    plot(sol)
 
-    make_gif(sol, sys)
+    # Plot
+    plot_sol(t_lin, sol)
+
+    # make_gif(sol, sys)
     return nn_params
 end
 
