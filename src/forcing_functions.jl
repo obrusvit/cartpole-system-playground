@@ -7,7 +7,7 @@ f0(x, t) = 0  # no force
 
 f_ramp(x, t; c=0.1) = c*t
 
-f_step(x, t; t_step_begin=10, t_step_end=11) = (t>= t_step_begin && t <= t_step_end) ? 1 : 0 
+f_step(x, t; t_step_begin=10, t_step_end=11, weight=1.0) = (t>= t_step_begin && t <= t_step_end) ? weight*1.0 : 0.0 
 
 function forcing_1(x, t, L_gain)
     ret = (-L_gain*(x .- [0; 0; pi; 0]))[1]

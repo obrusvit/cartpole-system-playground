@@ -4,11 +4,20 @@ This repo contains a simulation of a cartpole system with various control engine
 
 ## Simple simulation from initial conditions
 
-![Simple simulation with no force](output/cart_pole_sim.gif)
+Function `main_just_simulate()` to simulate cartpole system from initial conditions (stored in `CartPoleState`) with given parameters (stored in `CartPoleParams` struct). Examples:
+
+Unforced:
+![Simple simulation without force - gif](output/just_sim_1.gif)
+![Simple simulation without force - plot](output/just_sim_1.png)
+
+With some force applied and shorter pole:
+![Simple simulation with force - gif](output/just_sim_2.gif)
+![Simple simulation with force - plot](output/just_sim_2.png)
 
 ## Estimations
 
 Estimation of all 4 states from a single measurement of position `x`.
+![State estimation with EKF - plot](output/estim_EKF_small.png)
 
 ## LQR control
 
@@ -16,6 +25,7 @@ Estimation of all 4 states from a single measurement of position `x`.
 
 ### Using nonlinear optimization
 
-![Swing up maneuver using optimization](output/swingup_optim.gif)
+![Swing up maneuver using optimization - gif](output/swingup_optim.gif)
+![Swing up maneuver using optimization - plot](output/swingup_optim.png)
 
 ### Using reinforcement learning

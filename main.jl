@@ -45,7 +45,7 @@ function main_just_simulate()
     params  = CartPoleParams(
             1.0, 0.5,     # w, h
             1.0, 0.3,   # mt, mp
-            2.0,        # L
+            1.0,        # L
             0.2, 0.2  # bt, bp
         )
 
@@ -58,17 +58,23 @@ function main_just_simulate()
     t_lin = range(tspan[begin], tspan[end], step=Ts);
 
     # # Forcing function
-    # f(x, t) = f_step(x, t; t_step_begin=4, t_step_end=6);
-    f(x, t) = f0(x,t);
+    f(x, t) = f_step(x, t; t_step_begin=4, t_step_end=6, weight=0.3);
+    # f(x, t) = f0(x,t);
 
     # # ODE problem of nonlinear CartPole System
     p = [params.mₜ, params.mₚ, params.L, params.bₜ, params.bₚ, f];
     x0 = [init.x, init.ẋ, init.ϕ, init.ϕ̇];
     prob = ODEProblem(cartPoleSystem, x0, tspan, p);
-    sol = solve(prob);
+    saved_values = SavedValues(Float64, Vector{Float64});
+    function cb_save(u,t,p) 
+        f = p[end]
+        return vcat(u, f(u, t));
+    end
+    cb = SavingCallback((u, t, integrator) -> cb_save(u, t, p), saved_values; saveat=t_lin);
+    sol = solve(prob, callback=cb);
 
     # Plot
-    plot_sol(t_lin, sol)
+    plot_sol_force(t_lin, sol, saved_values; dest_name="just_sim.png")
 
     make_gif(sol, sys)
 end
@@ -90,18 +96,19 @@ function main_estimator_cb()
     sysd_LTI = c2d(sys_LTI, Ts, :zoh);
 
     # # Forcing function
-    f(x, t) = f_step(x, t; t_step_begin=4, t_step_end=6);
+    forcing_fun(x, t) = f_step(x, t; t_step_begin=4, t_step_end=6);
 
     # Callback for observer
     sys_obs = cartpole_observer(sys_LTI);
     sysd_obs = c2d(sys_obs, Ts, :zoh);
     u_obs = [0.0; 0.0; 0.1; 0.0];
-    function cb_observer(u, t)
+    function cb_observer(u, t, p)
         noise = get_meas_noise()
         u[1] += noise
+        f = p[end]
         # u[1] or sys_LTI_lower.C*u
         u_obs = sysd_obs.A * [u_obs[1]; u_obs[2]; u_obs[3]; u_obs[4]] + sysd_obs.B * [f(u, t); sys_LTI.C * u];
-        return vcat(u_obs, u);
+        return vcat(u_obs, u, f(u, t));
     end
 
     # Proper LKF
@@ -114,9 +121,10 @@ function main_estimator_cb()
     C = sysd_LTI.C; 
     x = [0.0; 0.0; pi - 0.1; 0.0];
 
-    function cb_LKF(u, t, _)
+    function cb_LKF(u, t, p)
         noise = get_meas_noise()
         u[1] += noise  # measurement x is noisy
+        f = p[end]
 
         # Meas update / Correction step / Data step
         y = C * u
@@ -130,12 +138,13 @@ function main_estimator_cb()
         P = A * Pₖ * A' + Q
 
         x_estim = vec(x);
-        return vcat(x_estim, u);
+        return vcat(x_estim, u, f(u, t));
     end
 
-    function cb_LKF_2(u, t, _)
+    function cb_LKF_2(u, t, p)
         noise = get_meas_noise()
         u[1] += noise
+        f = p[end]
 
         # Time update / Prediction step / Time step
         xₖ = A * x + B * f(u, t)
@@ -148,12 +157,13 @@ function main_estimator_cb()
         P = Pₖ - Lₖ * (C * Pₖ * C') * Lₖ'
 
         x_estim = vec(x);
-        return vcat(x_estim, u);
+        return vcat(x_estim, u, f(u, t));
     end
 
-    function cb_EKF(u, t, params)
+    function cb_EKF(u, t, p)
         noise = get_meas_noise()
         u[1] += noise  # measurement x is noisy
+        f = p[end]
 
         # Meas update / Correction step / Data step
         y = C * u
@@ -170,17 +180,17 @@ function main_estimator_cb()
         # Version 1: handrolled forward euler approximation
         # x = cartPoleDiscApprox(sys, f(u,t), 0, Ts)
         # Version 2: use DifferentialEquations to simulate one step
-        x_sol = solve(ODEProblem(cartPoleSystem, xₖ, (t, t + Ts), params))
+        x_sol = DifferentialEquations.solve(ODEProblem(cartPoleSystem, xₖ, (t, t + Ts), p))
         x = x_sol.u[end]
 
         P = Aₖ * Pₖ * Aₖ' + Q
 
         x_estim = vec(x);
-        return vcat(x_estim, u);
+        return vcat(x_estim, u, f(u, t));
     end
 
     # # ODE problem of nonlinear CartPole System
-    p = [params.mₜ, params.mₚ, params.L, params.bₜ, params.bₚ, f];
+    p = [params.mₜ, params.mₚ, params.L, params.bₜ, params.bₚ, forcing_fun];
     x0 = [init.x, init.ẋ, init.ϕ, init.ϕ̇];
     prob = ODEProblem(cartPoleSystem, x0, tspan, p);
     saved_values = SavedValues(Float64, Vector{Float64});
@@ -188,7 +198,7 @@ function main_estimator_cb()
     sol = solve(prob, callback=cb);
 
     # Plot
-    plot_sol_and_est(t_lin, sol, saved_values)
+    plot_sol_est_force(t_lin, sol, saved_values)
 end
 
 function main_LQR(gif::Bool)
@@ -261,10 +271,16 @@ function main_swingup_optim()
     p = [params.mₜ, params.mₚ, params.L, params.bₜ, params.bₚ, f]
     x0 = [init.x, init.ẋ, init.ϕ, init.ϕ̇]
     prob = ODEProblem(cartPoleSystem, x0, tspan, p)
-    sol = solve(prob)
+    saved_values = SavedValues(Float64, Vector{Float64});
+    function cb_save(u,t,p) 
+        f = p[end]
+        return vcat(u, f(u, t));
+    end
+    cb = SavingCallback((u, t, integrator) -> cb_save(u, t, p), saved_values; saveat=t_lin);
+    sol = solve(prob, callback=cb);
 
     # Plot
-    plot_sol(t_lin, sol)
+    plot_sol_force(t_lin, sol, saved_values; dest_name="swingup_optim.png")
 
     make_gif(sol, sys)
 end

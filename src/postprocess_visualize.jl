@@ -4,21 +4,25 @@
 "
 
 function unpack_sol(sol::SavedValues; indices=[1,2,3,4])
+    # indices 1-4 for true solution
     # indices 5-8 if we have also noisy values in SavedVector
-    sol_x1 = [s[indices[1]] for s in sol.saveval]
-    sol_x2 = [s[indices[2]] for s in sol.saveval]
-    sol_x3 = [s[indices[3]] for s in sol.saveval]
-    sol_x4 = [s[indices[4]] for s in sol.saveval]
-    return [sol_x1 sol_x2 sol_x3 sol_x4]
+    # index 9 for force
+    ret = []
+    for i = indices
+        sol_unpack = [s[i] for s in sol.saveval]
+        push!(ret, sol_unpack)
+    end
+    return ret
 end
 
 function unpack_sol(t, sol)
     sol_unpacked = sol.(t)
-    sol_x1 = [s[1] for s in sol_unpacked]
-    sol_x2 = [s[2] for s in sol_unpacked]
-    sol_x3 = [s[3] for s in sol_unpacked]
-    sol_x4 = [s[4] for s in sol_unpacked]
-    return [sol_x1 sol_x2 sol_x3 sol_x4]
+    ret = []
+    for i = [1, 2, 3, 4]
+        sol_x = [s[i] for s in sol_unpacked]
+        push!(ret, sol_x)
+    end
+    return ret
 end
 
 function corrupt_sol(t, sol_unpacked)
@@ -30,37 +34,62 @@ function corrupt_sol(t, sol_unpacked)
     return sol_corrupted 
 end
 
-function plot_sol(t_lin, sol; dest_dir="output")
+function plot_sol(t_lin, sol; dest_dir="output", dest_name="plot_sol.png")
     sol_unpacked = unpack_sol(t_lin, sol)
-    p1 = plot(t_lin, sol_unpacked[:,1], label=L"x(t)", xlabel=L"time [s]", ylabel=L"x [m]")
-    p2 = plot(t_lin, sol_unpacked[:,2], label=L"\dot{x}(t)", xlabel=L"time [s]", ylabel=L"\dot{x} [m/s]")
-    p3 = plot(t_lin, sol_unpacked[:,3], label=L"\phi(t)", xlabel=L"time [s]", ylabel=L"\phi [rad]")
-    p4 = plot(t_lin, sol_unpacked[:,4], label=L"\dot{\phi}(t)", xlabel=L"time [s]", ylabel=L"\dot{\phi} [\phi/s]")
+    p1 = plot(t_lin, sol_unpacked[1], lab=L"x(t)", xlab=L"time [s]", ylab=L"x [m]")
+    p2 = plot(t_lin, sol_unpacked[2], lab=L"\dot{x}(t)", xlab=L"time [s]", ylab=L"\dot{x} [m/s]")
+    p3 = plot(t_lin, sol_unpacked[3], lab=L"\phi(t)", xlab=L"time [s]", ylab=L"\phi [rad]")
+    p4 = plot(t_lin, sol_unpacked[4], lab=L"\dot{\phi}(t)", xlab=L"time [s]", ylab=L"\dot{\phi} [rad/s]")
     p = plot(p1, p2, p3, p4, layout=(2, 2))
-    savefig(p, dest_dir * "/" * "cart_pole_sim.png")
+    savefig(p, dest_dir * "/" * dest_name)
+    display(p)
+end
+
+function plot_sol_force(t_lin, sol, saved_values; dest_dir="output", dest_name="plot_sol_force.png")
+    sol_unpacked = unpack_sol(t_lin, sol)
+    force_unpack = unpack_sol(saved_values, indices=[5])
+
+    p1 = plot(t_lin, sol_unpacked[1], lab=L"x(t)", lw=1.5, xlab=L"time [s]", ylab=L"x [m]")
+    p2 = plot(t_lin, sol_unpacked[2], lab=L"\dot{x}(t)", lw=1.5, xlab=L"time [s]", ylab=L"\dot{x} [m/s]")
+    p3 = plot(t_lin, sol_unpacked[3], lab=L"\phi(t)", lw=1.5, xlab=L"time [s]", ylab=L"\phi [rad]")
+    p4 = plot(t_lin, sol_unpacked[4], lab=L"\dot{\phi}(t)", lw=1.5, xlab=L"time [s]", ylab=L"\dot{\phi} [rad/s]")
+
+    # force
+    p5 = plot(t_lin, force_unpack[1], lab=L"f(x,t)", lw=1.5, xlab=L"time [s]", ylab=L"F[N]")
+    empty_plot = plot([0],[0], frame=:none, ticks=:none, lab=:none)
+
+    p = plot(p1, p2, p3, p4, p5, empty_plot, layout=(3, 2))
+    savefig(p, dest_dir * "/" * dest_name)
     display(p)
 end
 
 
-function plot_sol_and_est(t_lin, sol, saved_values ;dest_dir="output")
+function plot_sol_est_force(t_lin, sol, saved_values; dest_dir="output", dest_name="plot_sol_est_force.png")
     # we measure only `x` so other "meas" plots are commented out
     sol_unpacked = unpack_sol(t_lin, sol)
     estim_unpack = unpack_sol(saved_values, indices=[1, 2, 3, 4])
+    force_unpack = unpack_sol(saved_values, indices=[9])
+
     sol_unpacked_noisy = unpack_sol(saved_values, indices=[5, 6, 7, 8])
-    p1 = plot(t_lin, sol_unpacked_noisy[:,1], label=L"x_{meas}(t)", alpha=0.3, xlabel=L"time [s]", ylabel=L"x [m]")
-    plot!(p1, t_lin, sol_unpacked[:,1], label=L"x_{true}(t)", linewidth=1.5)
-    plot!(p1, t_lin, estim_unpack[:,1], label=L"x_{estim}(t)", style=:dash, linewidth=1.5)
-    # p2 = plot(t_lin, sol_unpacked_noisy[:,2], label=L"\dot{x}_{meas}(t)", alpha=0.3, xlabel=L"time [s]", ylabel=L"\dot{x} [m/s]")
-    p2 = plot(t_lin, sol_unpacked[:,2], label=L"\dot{x}_{true}(t)", linewidth=1.5)
-    plot!(p2, t_lin, estim_unpack[:,2], label=L"\dot{x}_{estim}(t)", style=:dash, linewidth=1.5)
-    # p3 = plot(t_lin, sol_unpacked_noisy[:,3], label=L"\phi_{meas}(t)", alpha=0.3, xlabel=L"time [s]", ylabel=L"\phi [rad]")
-    p3 = plot(t_lin, sol_unpacked[:,3], label=L"\phi_{true}(t)", linewidth=1.5)
-    plot!(p3, t_lin, estim_unpack[:,3], label=L"\phi_{estim}(t)", style=:dash, linewidth=1.5)
-    # p4 = plot(t_lin, sol_unpacked_noisy[:,4], label=L"\dot{\phi}_{meas}(t)", alpha=0.3, xlabel=L"time [s]", ylabel=L"\dot{\phi} [\phi/s]")
-    p4 = plot(t_lin, sol_unpacked[:,4], label=L"\dot{\phi}_{true}(t)", linewidth=1.5)
-    plot!(p4, t_lin, estim_unpack[:,4], label=L"\dot{\phi}_{estim}(t)", style=:dash, linewidth=1.5)
-    p = plot(p1, p2, p3, p4, layout=(2, 2))
-    savefig(p, dest_dir * "/" * "cart_pole_sim_estim.png")
+    p1 = plot(t_lin, sol_unpacked_noisy[1], lab=L"x_{meas}(t)", alpha=0.3, xlab=L"time [s]", ylab=L"x [m]")
+    plot!(p1, t_lin, sol_unpacked[1], lab=L"x_{true}(t)", lw=1.5)
+    plot!(p1, t_lin, estim_unpack[1], lab=L"x_{estim}(t)", style=:dash, lw=1.5)
+    # p2 = plot(t_lin, sol_unpacked_noisy[2], lab=L"\dot{x}_{meas}(t)", alpha=0.3, xlab=L"time [s]", ylab=L"\dot{x} [m/s]")
+    p2 = plot(t_lin, sol_unpacked[2], lab=L"\dot{x}_{true}(t)", lw=1.5, xlab=L"time [s]", ylab=L"\dot{x} [m/s]")
+    plot!(p2, t_lin, estim_unpack[2], lab=L"\dot{x}_{estim}(t)", style=:dash, lw=1.5)
+    # p3 = plot(t_lin, sol_unpacked_noisy[3], lab=L"\phi_{meas}(t)", alpha=0.3, xlab=L"time [s]", ylab=L"\phi [rad]")
+    p3 = plot(t_lin, sol_unpacked[3], lab=L"\phi_{true}(t)", lw=1.5, xlab=L"time [s]", ylab=L"\phi [rad]")
+    plot!(p3, t_lin, estim_unpack[3], lab=L"\phi_{estim}(t)", style=:dash, lw=1.5)
+    # p4 = plot(t_lin, sol_unpacked_noisy[4], lab=L"\dot{\phi}_{meas}(t)", alpha=0.3, xlab=L"time [s]", ylab=L"\dot{\phi} [rand/s]")
+    p4 = plot(t_lin, sol_unpacked[4], lab=L"\dot{\phi}_{true}(t)", lw=1.5, xlab=L"time [s]", ylab=L"\dot{\phi} [rad/s]")
+    plot!(p4, t_lin, estim_unpack[4], lab=L"\dot{\phi}_{estim}(t)", style=:dash, lw=1.5)
+
+    # force
+    p5 = plot(t_lin, force_unpack[1], lab=L"f(x,t)", lw=1.5, xlab=L"time [s]", ylab=L"F[N]")
+    empty_plot = plot([0],[0], frame=:none, ticks=:none, lab=:none)
+
+    p = plot(p1, p2, p3, p4, p5, empty_plot, layout=(3, 2))
+    savefig(p, dest_dir * "/" * dest_name)
     display(p)
 end
 
