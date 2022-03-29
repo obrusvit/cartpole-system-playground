@@ -6,11 +6,15 @@ This repo contains a simulation of a cartpole system with various control engine
 
 Function `main_just_simulate()` to simulate cartpole system from initial conditions (stored in `CartPoleState`) with given parameters (stored in `CartPoleParams` struct). Examples:
 
+
 Unforced:
+
 ![Simple simulation without force - gif](output/just_sim_1.gif)
 ![Simple simulation without force - plot](output/just_sim_1.png)
 
+
 With some force applied and shorter pole:
+
 ![Simple simulation with force - gif](output/just_sim_2.gif)
 ![Simple simulation with force - plot](output/just_sim_2.png)
 
