@@ -228,10 +228,16 @@ function main_LQR(gif::Bool)
     p = [params.mₜ, params.mₚ, params.L, params.bₜ, params.bₚ, f]
     x0 = [init.x, init.ẋ, init.ϕ, init.ϕ̇]
     prob = ODEProblem(cartPoleSystem, x0, tspan, p)
-    sol = solve(prob)
+    saved_values = SavedValues(Float64, Vector{Float64});
+    function cb_save(u,t,p) 
+        f = p[end]
+        return vcat(u, f(u, t));
+    end
+    cb = SavingCallback((u, t, integrator) -> cb_save(u, t, p), saved_values; saveat=t_lin);
+    sol = solve(prob, callback=cb);
 
     # Plot
-    plot_sol(t_lin, sol)
+    plot_sol_force(t_lin, sol, saved_values)
     if gif
         make_gif(sol, sys)
     end

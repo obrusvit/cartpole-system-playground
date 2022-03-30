@@ -142,7 +142,7 @@ function make_gif(t, states, cartpole::CartPole)
 end
 
 
-function make_gif(sol, cartpole::CartPole; dest_dir::String="output")
+function make_gif(sol, cartpole::CartPole; dest_dir::String="output", dest_name::String="cart_pole_sim.gif")
     # p = plot(reuse = false)
     anim = @animate for t = sol.t[begin]:0.1:sol.t[end]
         v = sol(t)
@@ -153,5 +153,5 @@ function make_gif(sol, cartpole::CartPole; dest_dir::String="output")
         cartpole.state = CartPoleState(x, ẋ, ϕ, ϕ̇)
         vis_cartpole(cartpole, t)
     end
-    gif(anim, dest_dir * "/" * "cart_pole_sim.gif", fps = 24)
+    gif(anim, dest_dir * "/" * dest_name, fps = 24)
 end

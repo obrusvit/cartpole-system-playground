@@ -25,6 +25,11 @@ Estimation of all 4 states from a single measurement of position `x`.
 
 ## LQR control
 
+Example of recovery from bad initial position and subsequent push at time 10s.
+
+![LQR control - gif](output/lqr_1.gif)
+![LQR control - plot](output/lqr_1.png)
+
 ## Swing-up maneuver
 
 ### Using nonlinear optimization
