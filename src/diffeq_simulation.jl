@@ -7,7 +7,7 @@
 """
 Representation of parameters in CartPole system. Unmutable.
 """
-struct CartPoleParams
+mutable struct CartPoleParams
     w 
     h
     mₜ

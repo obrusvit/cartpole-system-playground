@@ -34,7 +34,8 @@ function corrupt_sol(t, sol_unpacked)
     return sol_corrupted 
 end
 
-function plot_sol(t_lin, sol; dest_dir="output", dest_name="plot_sol.png")
+function plot_sol(sol; dest_dir="output", dest_name="plot_sol.png")
+    t_lin = range(sol.t[begin], sol.t[end], step=0.1)
     sol_unpacked = unpack_sol(t_lin, sol)
     p1 = plot(t_lin, sol_unpacked[1], lab=L"x(t)", xlab=L"time [s]", ylab=L"x [m]")
     p2 = plot(t_lin, sol_unpacked[2], lab=L"\dot{x}(t)", xlab=L"time [s]", ylab=L"\dot{x} [m/s]")
@@ -45,7 +46,8 @@ function plot_sol(t_lin, sol; dest_dir="output", dest_name="plot_sol.png")
     display(p)
 end
 
-function plot_sol_force(t_lin, sol, saved_values; dest_dir="output", dest_name="plot_sol_force.png")
+function plot_sol_force(sol, saved_values; dest_dir="output", dest_name="plot_sol_force.png")
+    t_lin = saved_values.t
     sol_unpacked = unpack_sol(t_lin, sol)
     force_unpack = unpack_sol(saved_values, indices=[5])
 
@@ -64,8 +66,9 @@ function plot_sol_force(t_lin, sol, saved_values; dest_dir="output", dest_name="
 end
 
 
-function plot_sol_est_force(t_lin, sol, saved_values; dest_dir="output", dest_name="plot_sol_est_force.png")
+function plot_sol_est_force(sol, saved_values; dest_dir="output", dest_name="plot_sol_est_force.png")
     # we measure only `x` so other "meas" plots are commented out
+    t_lin = saved_values.t
     sol_unpacked = unpack_sol(t_lin, sol)
     estim_unpack = unpack_sol(saved_values, indices=[1, 2, 3, 4])
     force_unpack = unpack_sol(saved_values, indices=[9])

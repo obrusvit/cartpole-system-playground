@@ -9,12 +9,16 @@ include("diffeq_simulation.jl")
 
 # controller = FastChain((x, p) -> x, FastDense(3, 3, relu), FastDense(3,3,relu), FastDense(3,1))  # good
 controller = FastChain((x, p) -> x, FastDense(4, 4, relu), FastDense(4,4,relu), FastDense(4,1))  
+# controller = FastChain((x, p) -> x, FastDense(5, 5, relu), FastDense(5,5,relu), FastDense(5,1))  
 
 # get_control_input(u, nn_params) = controller([cos(u[3]), sin(u[3]), u[4]], nn_params)[1]
 get_control_input(u, nn_params) = controller([u[1], cos(u[3]), sin(u[3]), u[4]], nn_params)[1]
+# get_control_input(u, nn_params) = controller([u[1], u[2], cos(u[3]), sin(u[3]), u[4]], nn_params)[1]
 
+# map angle to [-pi, pi)
+modpi(theta) = mod2pi(theta + pi) - pi
 
-function trainCartPoleController(T_N::Float64, N::Int64, params::CartPoleParams, x0::CartPoleState, xN::CartPoleState; saveToJson::Bool=true)
+function trainCartPoleController(T_N::Float64, N::Int64, params::CartPoleParams, x0::CartPoleState, xN::CartPoleState; saveToJson::Bool=false)
     # initial condition
     # u0, tspan, N, tsteps, dt = get_simulation_params()
     u0 = [x0.x, x0.ẋ, x0.ϕ, x0.ϕ̇]
@@ -34,15 +38,17 @@ function trainCartPoleController(T_N::Float64, N::Int64, params::CartPoleParams,
         sol = solve(remake(prob, p=ode_params), Tsit5(), saveat = tsteps)
         x = sol[1, :]
         dx = sol[2, :]
-        # theta = modpi.(sol[3, :])
-        theta = sol[3, :]
+        theta = modpi.(sol[3, :])
+        # theta = sol[3, :]
         dtheta = sol[4, :]
 
         state_vec = [[u[1], u[2], u[3], u[4]] for u in sol.u] 
         force = [get_control_input(u,p) for u in state_vec]
 
         # good objective functions
-        loss = 100*(theta[end]-pi)^2 + dtheta[end]^2 + dx[end]^2 + 0.01 * sum(abs2, force) / N  # best so far with tspan=(0,1), length of pole=1
+        # loss = 100*(theta[end]-pi)^2 + dtheta[end]^2 + dx[end]^2 + 0.01 * sum(abs2, force) / N  # best so far with tspan=(0,1), length of pole=1, 
+
+        loss = 100*(theta[end]-pi)^2 + dtheta[end]^2 + 50*x[end]^2 + dx[end]^2 + 0.01 * sum(abs2, force) / N  
 
         # loss = 1000*(theta[end]-pi)^2 + 10*sum(abs2, x) / N + dtheta[end]^2 + dx[end]^2 + 0.1 * sum(abs2, force) / N   # big dtheta at the end
 
