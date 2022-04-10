@@ -18,7 +18,13 @@ get_control_input(u, nn_params) = controller([u[1], cos(u[3]), sin(u[3]), u[4]],
 # map angle to [-pi, pi)
 modpi(theta) = mod2pi(theta + pi) - pi
 
-function trainCartPoleController(T_N::Float64, N::Int64, params::CartPoleParams, x0::CartPoleState, xN::CartPoleState; saveToJson::Bool=false)
+function read_nn_params_json(filepath::String)
+    file = open(filepath)
+    nn_params = JSON.parse(readline(file))
+    return Vector{Float32}(nn_params)
+end
+
+function train_cartpole_rl_controller(T_N::Float64, N::Int64, params::CartPoleParams, x0::CartPoleState, xN::CartPoleState; saveToJson::Bool=false)
     # initial condition
     # u0, tspan, N, tsteps, dt = get_simulation_params()
     u0 = [x0.x, x0.ẋ, x0.ϕ, x0.ϕ̇]
@@ -87,32 +93,3 @@ function trainCartPoleController(T_N::Float64, N::Int64, params::CartPoleParams,
     end
     return result
 end
-
-
-# function main_use(params)
-#     # initial condition
-#     u0, tspan, N, tsteps, dt = get_simulation_params()
-
-#     # set up ODE problem
-#     prob = ODEProblem(cartpole_controlled, u0, tspan, params)
-#     sol = solve(prob)
-
-#     # extract vector of x, xdot 
-#     state_vec = [[u[1], u[2], u[3], u[4]] for u in sol.u] 
-#     force = [get_control_input(u, params) for u in state_vec]
-#     return sol, force
-# end
-
-# function plot_state_and_force(sol, force)
-#     p = plot(layout=(2,1), xlims=(sol.t[1], sol.t[end]))
-#     plot!(p[1], sol, label=[L"x(t)" L"\dot{x}(t)" L"\theta(t)" L"\dot{\theta}(t)"])
-#     plot!(p[2], sol.t, force, label = "f(t)")
-#     display(p)
-# end
-
-# function main_all()
-#     trained_params = main_train()
-#     sol, force = main_use(trained_params)
-#     plot_state_and_force(sol, force)
-#     return trained_params, sol, force
-# end

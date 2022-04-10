@@ -221,15 +221,15 @@ function main_swingup_optim(cp_params::CartPoleParams, init_state::CartPoleState
 end
 
 
-function main_swingup_rl(cp_params::CartPoleParams, init_state::CartPoleState; make_plot::Bool=true, make_gif::Bool=false, nn_params = nothing)
+function main_swingup_rl(cp_params::CartPoleParams, init_state::CartPoleState; make_plot::Bool=true, make_gif::Bool=false, nn_params::Vector{Float32}=Vector{Float32}())
     final = CartPoleState(pi)
     sys = CartPole(cp_params, init_state)
     sys_LTI_upper = cartpole_LTI_sys(sys, final)
 
     T_N = 1.0  # final time of the maneuver
     N = 401
-    if nn_params === nothing
-        nn_params = trainCartPoleController(T_N, N, cp_params, init_state, final; saveToJson = true)
+    if isempty(nn_params)
+        nn_params = train_cartpole_rl_controller(T_N, N, cp_params, init_state, final; saveToJson = true)
         println("training finished")
     end
 
