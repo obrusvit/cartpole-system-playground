@@ -1,10 +1,30 @@
 # Cartpole system playground
 
-This repo contains a simulation of a cartpole system with various control engineering stuff. It's meant to refresh a few concepts and test capabilities of Julia.
+This repo contains a simulation of a cartpole system (pendulum on a trolley) with various control engineering stuff. It's meant to refresh a few concepts and test capabilities of Julia.
+
+Simulated system is governed by the following equations of motion:
+
+
+![Equation of motion](https://latex.codecogs.com/svg.image?\dot{x}&space;=&space;\frac{m_p&space;\cdot&space;sin(\theta)&space;\cdot&space;\left(L\cdot&space;\dot{\theta}^2&plus;g\cdot&space;cos(\theta)\right)-&space;b_t\cdot&space;\dot{x}&space;&plus;&space;\frac{b_p\cdot&space;\dot{\theta}&space;\cdot&space;cos(\theta)}{L}&space;&plus;&space;F}{m_t&plus;m_p\cdot&space;sin^2(\theta)}&space;&space;\newline\dot{\theta}&space;=\frac{-m_p&space;L&space;\dot{\theta}^2\cdot&space;cos(\theta)&space;sin(\theta)&space;-&space;(m_t&plus;m_p)g\cdot&space;sin(\theta)&space;&plus;&space;b_t\dot{x}\cdot&space;cos(\theta)&space;-&space;\frac{(m_t&plus;m_b)b_p\dot{\theta}}{m_pL}&space;-&space;cos(\theta)\cdot&space;F}{L\left(m_t&plus;m_p\cdot&space;sin\left(\theta\right)^2\right)})
+
+where:
+
+- ![imgx](https://latex.codecogs.com/svg.image?x,&space;\dot{x}) - position and speed of the cart (trolley), positive to the right
+- ![imgth](https://latex.codecogs.com/svg.image?\theta,&space;\dot{\theta}) - angle and angular velocity of the pole (pendulum), 0 at the bottom position, positive counter-clockwise
+- ![imgm](https://latex.codecogs.com/svg.image?m_t,&space;m_p) - mass of the cart and the pole 
+- ![imgb](https://latex.codecogs.com/svg.image?b_t,&space;b_p) - friction coefficients of the cart (and ground) and the pole (and cart)
+- ![imgb](https://latex.codecogs.com/svg.image?L) - the length of the pole
+- ![imgb](https://latex.codecogs.com/svg.image?F) - force applied to the cart, positive to the right
+
+Developed with Julia version `1.7.2`. Start the session with:
+
+```julia
+include("main.jl")
+```
 
 ## Simple simulation from initial conditions
 
-Function `simulate_cartpole()` to simulate cartpole system from initial conditions (stored in `CartPoleState`) with given parameters (stored in `CartPoleParams` struct). Examples:
+Function `simulate_cartpole()` to simulate the system from initial conditions (stored in `CartPoleState`) with given parameters (stored in `CartPoleParams` struct). Examples:
 
 Unforced:
 
@@ -71,14 +91,20 @@ main_LQR(cp_params, init_state; make_plot=true)
 
 ### Using nonlinear optimization
 
-`JuMP` package is used to impement direct collocation method implemented in `src/swingup_optim.jl`. A nice material for the method is in [An Introduction to Trajectory Optimization: How to Do Your Own Direct Collocation](https://epubs.siam.org/doi/10.1137/16M1062569)
+`JuMP` package is used to implement direct collocation method in `src/swingup_optim.jl`. Open loop control sequence is generated, LQR takes over near the top. A nice material for collocation methods is in [An Introduction to Trajectory Optimization: How to Do Your Own Direct Collocation by Matthew Kelly](https://epubs.siam.org/doi/10.1137/16M1062569). 
+
+Cost function is the sum of squares of control inputs. Constraints comprise of box constraints on states and inputs and constraints on collocation points. Initial guess is trivial: straight line from the initial to the final state.
 
 ![Swing up maneuver using optimization - gif](output/swingup_optim.gif)
 ![Swing up maneuver using optimization - plot](output/swingup_optim.png)
 
 ### Using reinforcement learning
 
-Neural network with 4 inputs, 1 hidden layer and 1 output is trained using a cost function. `DiffEqFlux` package does the work. The code in `src/swingup_rl.jl` was highly inspired by [this Medium post by Paul Shen](https://medium.com/swlh/neural-ode-for-reinforcement-learning-and-nonlinear-optimal-control-cartpole-problem-revisited-5408018b8d71)
+Neural network with 4 inputs, 1 hidden layer and 1 output is trained using a cost function. `DiffEqFlux` package does the work. Feedback law using neural network is produced and LQR takes over near the top. The code in `src/swingup_rl.jl` was highly inspired by [this Medium post by Paul Shen](https://medium.com/swlh/neural-ode-for-reinforcement-learning-and-nonlinear-optimal-control-cartpole-problem-revisited-5408018b8d71)
+
+By trial and error, the following loss function had the best results. It's a weighted sum of end states plus sum of control inputs along the way:
+
+![RL loss function](https://latex.codecogs.com/svg.image?100\cdot(\theta[N]&space;-&space;\pi)^2&space;&plus;&space;10\cdot\dot{\theta}[N]^2&plus;50\cdot&space;x[N]^2&space;&plus;&space;\dot{x}[N]^2&space;&plus;&space;0.01\cdot&space;\sum_{k=1}^{N}F[k]^2)
 
 To reproduce the graph below, write the following:
 ```julia
