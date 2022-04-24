@@ -1,3 +1,10 @@
+"
+ Code taken from:
+ https://medium.com/swlh/neural-ode-for-reinforcement-learning-and-nonlinear-optimal-control-cartpole-problem-revisited-5408018b8d71
+
+ author: Obrusnik Vit
+"
+
 using DiffEqFlux
 using DifferentialEquations
 
@@ -5,7 +12,6 @@ using JSON
 using Dates
 
 include("diffeq_simulation.jl")
-
 
 controller = FastChain((x, p) -> x, FastDense(4, 4, relu), FastDense(4,4,relu), FastDense(4,1))  
 

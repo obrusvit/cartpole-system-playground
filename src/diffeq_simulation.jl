@@ -24,7 +24,7 @@ Default constructor for CartPoleParams.
 CartPoleParams() = CartPoleParams(
         1.0, 0.5,     # w, h
         1.0, 0.1,   # mt, mp
-        1.0,        # L
+        2.0,        # L
         0.5, 0.1  # bt, bp
     )
 
