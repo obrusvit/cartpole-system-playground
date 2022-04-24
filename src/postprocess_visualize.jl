@@ -129,7 +129,7 @@ function vis_cartpole(cartpole::CartPole, time::Float64)
 end
 
 
-function make_gif(t, states, cartpole::CartPole)
+function gif_sol(t, states, cartpole::CartPole)
     # was used for swing up control vis
     p = plot(reuse = false)
     anim = @animate for idx = 1:1:length(t)
@@ -145,7 +145,7 @@ function make_gif(t, states, cartpole::CartPole)
 end
 
 
-function make_gif(sol, cartpole::CartPole; dest_dir::String="output", dest_name::String="cart_pole_sim.gif")
+function gif_sol(sol, cartpole::CartPole; dest_dir::String="output", dest_name::String="cart_pole_sim.gif")
     # p = plot(reuse = false)
     anim = @animate for t = sol.t[begin]:0.1:sol.t[end]
         v = sol(t)

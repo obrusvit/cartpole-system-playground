@@ -7,13 +7,9 @@ using Dates
 include("diffeq_simulation.jl")
 
 
-# controller = FastChain((x, p) -> x, FastDense(3, 3, relu), FastDense(3,3,relu), FastDense(3,1))  # good
 controller = FastChain((x, p) -> x, FastDense(4, 4, relu), FastDense(4,4,relu), FastDense(4,1))  
-# controller = FastChain((x, p) -> x, FastDense(5, 5, relu), FastDense(5,5,relu), FastDense(5,1))  
 
-# get_control_input(u, nn_params) = controller([cos(u[3]), sin(u[3]), u[4]], nn_params)[1]
 get_control_input(u, nn_params) = controller([u[1], cos(u[3]), sin(u[3]), u[4]], nn_params)[1]
-# get_control_input(u, nn_params) = controller([u[1], u[2], cos(u[3]), sin(u[3]), u[4]], nn_params)[1]
 
 # map angle to [-pi, pi)
 modpi(theta) = mod2pi(theta + pi) - pi
@@ -41,7 +37,7 @@ function train_cartpole_rl_controller(T_N::Float64, N::Int64, params::CartPolePa
     function loss_neuralode(p)
         f(x,t) = get_control_input(x, p)
         ode_params = [params.mₜ, params.mₚ, params.L, params.bₜ, params.bₚ, f]
-        sol = solve(remake(prob, p=ode_params), Tsit5(), saveat = tsteps)
+        sol = DifferentialEquations.solve(remake(prob, p=ode_params), Tsit5(), saveat = tsteps)
         x = sol[1, :]
         dx = sol[2, :]
         theta = modpi.(sol[3, :])
@@ -51,15 +47,13 @@ function train_cartpole_rl_controller(T_N::Float64, N::Int64, params::CartPolePa
         state_vec = [[u[1], u[2], u[3], u[4]] for u in sol.u] 
         force = [get_control_input(u,p) for u in state_vec]
 
+        # 2022-04-23_16:30:10, default CartPoleParams but with L=2.0; T_N=4.0, N = 401
+        # controller with 4 inputs, 1 hl, 1 output
+        # x0 = (0, 0, 0, 0); xN = (0, 0, pi, 0)
+        loss = 100*(theta[end]-xN.ϕ)^2 + 10*(dtheta[end]-xN.ϕ̇)^2 + 50*(x[end]-xN.x)^2 + (dx[end]-xN.ẋ)^2 + 0.01 * sum(abs2, force) / N   
+
         # good objective functions
         # loss = 100*(theta[end]-pi)^2 + dtheta[end]^2 + dx[end]^2 + 0.01 * sum(abs2, force) / N  # best so far with tspan=(0,1), length of pole=1, 
-
-        loss = 100*(theta[end]-pi)^2 + dtheta[end]^2 + 50*x[end]^2 + dx[end]^2 + 0.01 * sum(abs2, force) / N  
-
-        # loss = 1000*(theta[end]-pi)^2 + 10*sum(abs2, x) / N + dtheta[end]^2 + dx[end]^2 + 0.1 * sum(abs2, force) / N   # big dtheta at the end
-
-        # loss = 10*(theta[end]-pi)^2 + dtheta[end]^2 + 0.01 * sum(abs2, force) / N  
-
         return loss, sol
     end
 
@@ -84,7 +78,7 @@ function train_cartpole_rl_controller(T_N::Float64, N::Int64, params::CartPolePa
       nn_pinit,
       # ADAM(0.05),
       cb=callback_1,
-      maxiters=2400,
+      maxiters=3000,
     )
 
     if saveToJson

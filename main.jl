@@ -190,7 +190,7 @@ function main_LQR(cp_params::CartPoleParams, init_state::CartPoleState; make_plo
         plot_sol_force(sol, saved_values; dest_dir="output", dest_name="main_LQR.png")
     end
     if make_gif
-        make_gif(sol, CartPole(cp_params, init_state); dest_dir="output", dest_name="main_lqr.gif")
+        gif_sol(sol, CartPole(cp_params, init_state); dest_dir="output", dest_name="main_lqr.gif")
     end
 end
 
@@ -216,7 +216,7 @@ function main_swingup_optim(cp_params::CartPoleParams, init_state::CartPoleState
         plot_sol_force(sol, saved_values; dest_dir="output", dest_name="main_swingup_optim.png")
     end
     if make_gif
-        make_gif(sol, CartPole(cp_params, init_state); dest_dir="output", dest_name="main_swingup_optim.gif")
+        gif_sol(sol, CartPole(cp_params, init_state); dest_dir="output", dest_name="main_swingup_optim.gif")
     end
 end
 
@@ -226,7 +226,7 @@ function main_swingup_rl(cp_params::CartPoleParams, init_state::CartPoleState; m
     sys = CartPole(cp_params, init_state)
     sys_LTI_upper = cartpole_LTI_sys(sys, final)
 
-    T_N = 1.0  # final time of the maneuver
+    T_N = 4.0  # final time of the maneuver
     N = 401
     if isempty(nn_params)
         nn_params = train_cartpole_rl_controller(T_N, N, cp_params, init_state, final; saveToJson = true)
@@ -234,7 +234,7 @@ function main_swingup_rl(cp_params::CartPoleParams, init_state::CartPoleState; m
     end
 
     f(x, t) =
-        if t >= T_N || abs(x[3] - pi) <= 0.01
+        if t >= T_N || abs(x[3] - pi) <= 0.1
             force_LQR(x, sys_LTI_upper)
         else
             get_control_input(x, nn_params)
@@ -246,7 +246,7 @@ function main_swingup_rl(cp_params::CartPoleParams, init_state::CartPoleState; m
         plot_sol_force(sol, saved_values; dest_dir="output", dest_name="main_swingup_rl.png")
     end
     if make_gif
-        make_gif(sol, CartPole(cp_params, init_state); dest_dir="output", dest_name="main_swingup_rl.gif")
+        gif_sol(sol, CartPole(cp_params, init_state); dest_dir="output", dest_name="main_swingup_rl.gif")
     end
     return nn_params
 end
@@ -267,5 +267,5 @@ function main()
     # Plot
     plot_sol_force(sol, saved_values; dest_name = "main.png")
     sys = CartPole(cp_params, init)
-    make_gif(sol, sys; dest_name = "main.gif")
+    gif_sol(sol, sys; dest_name = "main.gif")
 end
